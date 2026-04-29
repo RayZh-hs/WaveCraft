@@ -31,7 +31,7 @@ Procedural generation of Minecraft structures typically requires hand-authored k
 
 ---
 
-## 4. Phase III: WFC Rule Construction (Inverse WFC)
+## Phase III: WFC Rule Construction (Inverse WFC)
 *Goal: Mine valid adjacencies and frequencies from the original data.*
 
 - **Adjacency Mining**: Re-scan the original (non-augmented) houses. For every pair of adjacent patches that belong to identified clusters, record:
