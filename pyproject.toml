@@ -1,0 +1,20 @@
+[project]
+name = "wavecraft"
+version = "0.1.0"
+description = "Data preparation and unsupervised tile extraction for Minecraft structure WFC experiments."
+requires-python = ">=3.12"
+dependencies = [
+    "nbtlib>=2.0.4",
+    "numpy>=2.0.0",
+    "scikit-learn>=1.5.0",
+]
+
+[project.scripts]
+wavecraft-convert-bp = "wavecraft.convert_bp_to_schem:main"
+wavecraft-phase1 = "wavecraft.phase1_prepare_dataset:main"
+wavecraft-phase2 = "wavecraft.phase2_extract_tiles:main"
+wavecraft-analyze-results = "wavecraft.analyze_phase_results:main"
+
+[tool.uv]
+package = true
+
