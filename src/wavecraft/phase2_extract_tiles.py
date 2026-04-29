@@ -97,6 +97,26 @@ def boundary_contact_score(patch: np.ndarray, air_id: int) -> int:
     return score
 
 
+def face_contact_counts(patch: np.ndarray, air_id: int) -> dict[str, int]:
+    return {
+        "-y": int(np.count_nonzero(patch[0, :, :] != air_id)),
+        "+y": int(np.count_nonzero(patch[-1, :, :] != air_id)),
+        "-z": int(np.count_nonzero(patch[:, 0, :] != air_id)),
+        "+z": int(np.count_nonzero(patch[:, -1, :] != air_id)),
+        "-x": int(np.count_nonzero(patch[:, :, 0] != air_id)),
+        "+x": int(np.count_nonzero(patch[:, :, -1] != air_id)),
+    }
+
+
+def strongest_opposite_face_pair(patch: np.ndarray, air_id: int) -> int:
+    counts = face_contact_counts(patch, air_id)
+    return max(
+        min(counts["-y"], counts["+y"]),
+        min(counts["-z"], counts["+z"]),
+        min(counts["-x"], counts["+x"]),
+    )
+
+
 def architectural_score(patch: np.ndarray, kind_by_id: list[str], air_id: int) -> float:
     counts = patch_kind_counts(patch, kind_by_id, air_id)
     weighted_shapes = sum(ARCHITECTURAL_WEIGHTS.get(kind, 0.0) * count for kind, count in counts.items())
@@ -127,17 +147,55 @@ def is_low_information_patch(
     kind_by_id: list[str],
     air_id: int,
     max_simple_kind_fraction: float,
+    max_simple_with_tiny_feature_fraction: float,
+    min_meaningful_feature_voxels: int,
+    min_field_boundary_contact: int,
 ) -> bool:
     counts = patch_kind_counts(patch, kind_by_id, air_id)
     if not counts:
         return False
-    if sum(counts[kind] for kind in WINDOW_KINDS | OPENING_KINDS) > 0:
+    kind, share = dominant_kind_share(counts)
+    if kind not in LOW_INFORMATION_KINDS:
+        return False
+
+    feature_voxels = sum(counts[kind] for kind in WINDOW_KINDS | OPENING_KINDS)
+    if feature_voxels >= min_meaningful_feature_voxels:
+        return False
+    if feature_voxels > 0:
+        return share >= max_simple_with_tiny_feature_fraction
+    if share < max_simple_kind_fraction:
+        return False
+    return not is_socket_useful_field_patch(patch, kind_by_id, air_id, max_simple_kind_fraction, min_field_boundary_contact)
+
+
+def is_socket_useful_field_patch(
+    patch: np.ndarray,
+    kind_by_id: list[str],
+    air_id: int,
+    min_simple_kind_fraction: float,
+    min_field_boundary_contact: int,
+) -> bool:
+    counts = patch_kind_counts(patch, kind_by_id, air_id)
+    if not counts:
         return False
     kind, share = dominant_kind_share(counts)
-    return kind in LOW_INFORMATION_KINDS and share >= max_simple_kind_fraction
+    if kind not in LOW_INFORMATION_KINDS or share < min_simple_kind_fraction:
+        return False
+    if sum(counts[kind] for kind in WINDOW_KINDS | OPENING_KINDS) > 0:
+        return False
+    return (
+        boundary_contact_score(patch, air_id) >= min_field_boundary_contact
+        and strongest_opposite_face_pair(patch, air_id) >= patch.shape[1] * 3
+    )
 
 
-def semantic_bucket(patch: np.ndarray, kind_by_id: list[str], air_id: int) -> str:
+def semantic_bucket(
+    patch: np.ndarray,
+    kind_by_id: list[str],
+    air_id: int,
+    max_simple_kind_fraction: float,
+    min_field_boundary_contact: int,
+) -> str:
     counts = patch_kind_counts(patch, kind_by_id, air_id)
     total = patch.size
     non_air = int(np.count_nonzero(patch != air_id))
@@ -149,6 +207,8 @@ def semantic_bucket(patch: np.ndarray, kind_by_id: list[str], air_id: int) -> st
     wall = sum(counts[kind] for kind in WALL_KINDS)
     contact = boundary_contact_score(patch, air_id)
 
+    if is_socket_useful_field_patch(patch, kind_by_id, air_id, max_simple_kind_fraction, min_field_boundary_contact):
+        return "field"
     if windows >= 2:
         return "window"
     if openings >= 2:
@@ -172,6 +232,9 @@ def candidate_positions(
     max_non_air_fraction: float,
     min_architectural_score: float,
     max_simple_kind_fraction: float,
+    max_simple_with_tiny_feature_fraction: float,
+    min_meaningful_feature_voxels: int,
+    min_field_boundary_contact: int,
     kind_by_id: list[str],
 ) -> tuple[np.ndarray, list[str], dict[str, Any]]:
     if min(volume.shape) < window:
@@ -202,11 +265,19 @@ def candidate_positions(
         if score < min_architectural_score:
             rejected_score += 1
             continue
-        if is_low_information_patch(patch, kind_by_id, air_id, max_simple_kind_fraction):
+        if is_low_information_patch(
+            patch,
+            kind_by_id,
+            air_id,
+            max_simple_kind_fraction,
+            max_simple_with_tiny_feature_fraction,
+            min_meaningful_feature_voxels,
+            min_field_boundary_contact,
+        ):
             rejected_low_information += 1
             continue
         kept_positions.append((int(y), int(z), int(x)))
-        buckets.append(semantic_bucket(patch, kind_by_id, air_id))
+        buckets.append(semantic_bucket(patch, kind_by_id, air_id, max_simple_kind_fraction, min_field_boundary_contact))
 
     stats = {
         "density_candidates": int(len(density_positions)),
@@ -249,6 +320,9 @@ def extract_patch_sample(
     max_non_air_fraction: float,
     min_architectural_score: float,
     max_simple_kind_fraction: float,
+    max_simple_with_tiny_feature_fraction: float,
+    min_meaningful_feature_voxels: int,
+    min_field_boundary_contact: int,
     max_patches: int,
     rng: np.random.Generator,
     balanced_by_source: bool,
@@ -276,6 +350,9 @@ def extract_patch_sample(
             max_non_air_fraction,
             min_architectural_score,
             max_simple_kind_fraction,
+            max_simple_with_tiny_feature_fraction,
+            min_meaningful_feature_voxels,
+            min_field_boundary_contact,
             kind_by_id,
         )
         total_candidates += len(positions)
@@ -408,6 +485,9 @@ def extract_patch_sample(
         "max_non_air_fraction": max_non_air_fraction,
         "min_architectural_score": min_architectural_score,
         "max_simple_kind_fraction": max_simple_kind_fraction,
+        "max_simple_with_tiny_feature_fraction": max_simple_with_tiny_feature_fraction,
+        "min_meaningful_feature_voxels": int(min_meaningful_feature_voxels),
+        "min_field_boundary_contact": int(min_field_boundary_contact),
         "candidate_source_counts": {source: int(count) for source, count in sorted(source_candidate_counts.items())},
         "candidate_bucket_counts": {bucket: int(count) for bucket, count in sorted(bucket_candidate_counts.items())},
         "requested_quotas": {str(key): int(count) for key, count in sorted(quotas.items(), key=lambda item: str(item[0]))},
@@ -568,6 +648,54 @@ def select_medoids(
             }
         )
     return np.stack(medoid_patches), summaries
+
+
+def prune_field_prototypes(
+    prototypes: np.ndarray,
+    summaries: list[dict[str, Any]],
+    palette: list[str],
+    air_id: int,
+    max_field_prototypes_per_kind: int,
+    max_simple_kind_fraction: float,
+    min_field_boundary_contact: int,
+) -> tuple[np.ndarray, list[dict[str, Any]], dict[str, Any]]:
+    if max_field_prototypes_per_kind <= 0:
+        return prototypes, summaries, {"pruned_field_prototypes": 0, "field_prototype_kind_counts": {}}
+
+    kind_by_id = [category_kind(category) for category in palette]
+    kept_patches = []
+    kept_summaries = []
+    field_kind_counts: Counter[str] = Counter()
+    pruned = 0
+
+    for patch, summary in zip(prototypes, summaries, strict=True):
+        counts = patch_kind_counts(patch, kind_by_id, air_id)
+        kind, _share = dominant_kind_share(counts)
+        is_field = is_socket_useful_field_patch(
+            patch,
+            kind_by_id,
+            air_id,
+            max_simple_kind_fraction,
+            min_field_boundary_contact,
+        )
+        if is_field and field_kind_counts[kind] >= max_field_prototypes_per_kind:
+            pruned += 1
+            continue
+        kept_patches.append(patch)
+        kept_summaries.append(summary)
+        if is_field:
+            field_kind_counts[kind] += 1
+
+    if not kept_patches:
+        raise SystemExit("Field prototype pruning removed every prototype; relax --max-field-prototypes-per-kind")
+    return (
+        np.stack(kept_patches),
+        kept_summaries,
+        {
+            "pruned_field_prototypes": int(pruned),
+            "field_prototype_kind_counts": {kind: int(count) for kind, count in sorted(field_kind_counts.items())},
+        },
+    )
 
 
 def embedded_holdout_evaluation(
@@ -731,6 +859,10 @@ def main() -> None:
     parser.add_argument("--max-non-air-fraction", type=float, default=0.75)
     parser.add_argument("--min-architectural-score", type=float, default=1.05)
     parser.add_argument("--max-simple-kind-fraction", type=float, default=0.94)
+    parser.add_argument("--max-simple-with-tiny-feature-fraction", type=float, default=0.85)
+    parser.add_argument("--min-meaningful-feature-voxels", type=int, default=8)
+    parser.add_argument("--min-field-boundary-contact", type=int, default=60)
+    parser.add_argument("--max-field-prototypes-per-kind", type=int, default=2)
     parser.add_argument("--max-patches", type=int, default=60000)
     parser.add_argument("--k-values", default="30,40,50")
     parser.add_argument("--min-cluster-size", type=int, default=3)
@@ -755,6 +887,9 @@ def main() -> None:
         max_non_air_fraction=args.max_non_air_fraction,
         min_architectural_score=args.min_architectural_score,
         max_simple_kind_fraction=args.max_simple_kind_fraction,
+        max_simple_with_tiny_feature_fraction=args.max_simple_with_tiny_feature_fraction,
+        min_meaningful_feature_voxels=args.min_meaningful_feature_voxels,
+        min_field_boundary_contact=args.min_field_boundary_contact,
         max_patches=args.max_patches,
         rng=rng,
         balanced_by_source=not args.no_balanced_by_source,
@@ -791,6 +926,15 @@ def main() -> None:
         model.cluster_centers_,
         args.min_cluster_size,
     )
+    prototypes, cluster_summaries, prototype_pruning = prune_field_prototypes(
+        prototypes,
+        cluster_summaries,
+        palette,
+        int(metadata["air_id"]),
+        args.max_field_prototypes_per_kind,
+        args.max_simple_kind_fraction,
+        args.min_field_boundary_contact,
+    )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     np.save(args.output_dir / "sampled_patches.npy", patches)
@@ -810,6 +954,10 @@ def main() -> None:
         "max_non_air_fraction": args.max_non_air_fraction,
         "min_architectural_score": args.min_architectural_score,
         "max_simple_kind_fraction": args.max_simple_kind_fraction,
+        "max_simple_with_tiny_feature_fraction": args.max_simple_with_tiny_feature_fraction,
+        "min_meaningful_feature_voxels": args.min_meaningful_feature_voxels,
+        "min_field_boundary_contact": args.min_field_boundary_contact,
+        "max_field_prototypes_per_kind": args.max_field_prototypes_per_kind,
         "max_patches": args.max_patches,
         "seed": args.seed,
         "feature_info": feature_info,
@@ -820,6 +968,7 @@ def main() -> None:
         "cluster_count": int(len(set(labels))),
         "prototype_count_after_pruning": int(len(prototypes)),
         "min_cluster_size": args.min_cluster_size,
+        "prototype_pruning": prototype_pruning,
         "cluster_summaries": cluster_summaries,
         "heldout_evaluation": heldout_evaluation,
     }
@@ -847,6 +996,7 @@ def main() -> None:
         [
             "",
             f"Chosen k: {chosen_k}. Prototype tiles retained after pruning clusters smaller than {args.min_cluster_size}: {len(prototypes)}.",
+            f"Socket-useful simple field prototypes retained by kind: {prototype_pruning['field_prototype_kind_counts']}. Field prototypes pruned by cap: {prototype_pruning['pruned_field_prototypes']}.",
             "",
             "## Held-Out Source Diagnostics",
             "",
@@ -866,8 +1016,8 @@ def main() -> None:
             "",
             "- The palette reduction is doing important denoising work: dark masonry variants are visually inconsistent at the block level but structurally equivalent for patch learning, so they are grouped before clustering.",
             "- One-hot/SVD features avoid treating arbitrary palette IDs as ordinal distances, while architectural descriptor features keep windows, openings, roof pieces, frames, and walls visible to clustering.",
-            "- Source-balanced patch sampling prevents the largest structure from dominating the training sample. Semantic-bucket balancing prevents common solid material chunks from crowding out rare building features.",
-            "- The 70% air filter keeps roof edges, wall faces, and openings while dropping mostly empty context patches. Dense material chunks, low-salience local fragments, and simple single-kind sheets/columns are filtered before clustering.",
+            "- Source-balanced patch sampling prevents the largest structure from dominating the training sample. Semantic-bucket balancing prevents common solid material chunks from crowding out rare building features while keeping socket-useful simple field tiles.",
+            "- The 70% air filter keeps roof edges, wall faces, and openings while dropping mostly empty context patches. Dense material chunks, low-salience local fragments, and simple single-kind sheets/columns without useful sockets are filtered before clustering.",
             "- A sampled patch cap is used for tractable clustering. The script still counts all eligible windows before balanced sampling, so future runs can raise `--max-patches` when more memory or time is available.",
             "- The selected medoids are actual observed patches, not averaged centroids, so every exported prototype is a valid block arrangement from the source corpus.",
             "",

@@ -15,17 +15,18 @@ It is still not a final kitbash library without manual/visual review, because th
 - Feature encoding is `onehot_per_voxel_truncated_svd_plus_architectural_descriptors_plus_height`, so arbitrary palette IDs are no longer treated as ordinal distances and architectural descriptors now affect clustering.
 - Source-balanced sampling is enabled: True.
 - Semantic-bucket-balanced sampling is enabled: True.
-- Phase II found 310460 density candidates, retained 157736 architectural 5x5x5 patches, and clustered a sampled 60000 patches.
+- Phase II found 310460 density candidates, retained 169004 architectural 5x5x5 patches, and clustered a sampled 60000 patches.
 - Dense material chunks rejected before clustering: 128456.
-- Low-information single-kind sheets/columns rejected before clustering: 24268.
+- Low-information single-kind sheets/columns rejected before clustering: 13000.
+- Socket-useful simple field prototypes are capped by kind: {'log': 2, 'slab': 2}; pruned by cap: 5.
 - The selected prototypes are medoids, so every exported tile is an actual observed patch rather than an averaged block soup.
-- The transform sample counts are balanced: {'original': 15001, 'mirror_x': 14998, 'mirror_z': 15001, 'rot90_y': 15000}.
-- Semantic bucket sample counts are balanced where available: {'frame': 2128, 'opening': 20638, 'roof': 13181, 'wall': 2292, 'window': 21761}.
+- The transform sample counts are balanced: {'original': 14999, 'mirror_x': 14997, 'mirror_z': 15002, 'rot90_y': 15002}.
+- Semantic bucket sample counts are balanced where available: {'frame': 2032, 'opening': 19127, 'roof': 12785, 'wall': 2248, 'window': 20251, 'field': 3557}.
 
 ## Remaining Soundness Risks
 
 1. Cluster separation is still modest.
-   The best tested silhouette is 0.0769 at k=90. This is usable for exploration, but not strong evidence that the learned tiles form crisp architectural parts.
+   The best tested silhouette is 0.1170 at k=70. This is usable for exploration, but not strong evidence that the learned tiles form crisp architectural parts.
 
 2. Some sources remain structurally distinct.
    Held-out source distances above 1.25x indicate that a source contains patch patterns not well represented by the rest of the corpus.
@@ -38,29 +39,43 @@ It is still not a final kitbash library without manual/visual review, because th
 
 ## Diagnostics
 
-- Prototype tensor shape: `(90, 5, 5, 5)`.
-- Feature center shape: `(90, 74)`.
-- Feature info: `{'encoding': 'onehot_per_voxel_truncated_svd_plus_architectural_descriptors_plus_height', 'onehot_shape': [60000, 48125], 'semantic_descriptor_columns': ['air_fraction', 'boundary_contact_fraction', 'air_nonair_interface_fraction', 'window_fraction', 'opening_fraction', 'roof_fraction', 'frame_fraction', 'wall_fraction', 'architectural_score'], 'semantic_feature_weight': 4.0, 'svd_components': 64, 'svd_explained_variance_ratio_sum': 0.41391098499298096}`.
-- Largest cluster sizes: `[(59, 1479), (21, 1403), (58, 1235), (8, 1201), (30, 1119), (61, 1075), (48, 1072), (53, 1072), (25, 1056), (80, 1004)]`.
-- Prototype air fractions: `[0.616, 0.624, 0.648, 0.648, 0.544, 0.616, 0.536, 0.6, 0.664, 0.672, 0.656, 0.632, 0.552, 0.688, 0.688, 0.624, 0.44, 0.536, 0.576, 0.64, 0.648, 0.696, 0.584, 0.576, 0.656, 0.664, 0.512, 0.624, 0.528, 0.696, 0.672, 0.536, 0.672, 0.52, 0.632, 0.392, 0.584, 0.672, 0.6, 0.4, 0.656, 0.504, 0.528, 0.6, 0.584, 0.68, 0.48, 0.672, 0.64, 0.688, 0.584, 0.52, 0.688, 0.648, 0.424, 0.616, 0.672, 0.616, 0.664, 0.648, 0.64, 0.648, 0.456, 0.56, 0.56, 0.496, 0.664, 0.6, 0.608, 0.68, 0.584, 0.648, 0.496, 0.584, 0.672, 0.616, 0.664, 0.616, 0.568, 0.576, 0.616, 0.496, 0.616, 0.496, 0.6, 0.544, 0.448, 0.656, 0.672, 0.688]`.
-- Prototype non-air voxel counts: `[48, 47, 44, 44, 57, 48, 58, 50, 42, 41, 43, 46, 56, 39, 39, 47, 70, 58, 53, 45, 44, 38, 52, 53, 43, 42, 61, 47, 59, 38, 41, 58, 41, 60, 46, 76, 52, 41, 50, 75, 43, 62, 59, 50, 52, 40, 65, 41, 45, 39, 52, 60, 39, 44, 72, 48, 41, 48, 42, 44, 45, 44, 68, 55, 55, 63, 42, 50, 49, 40, 52, 44, 63, 52, 41, 48, 42, 48, 54, 53, 48, 63, 48, 63, 50, 57, 69, 43, 41, 39]`.
-- Source sample counts: `{'medieval_1a': 7664, 'medieval_2a': 7664, 'medieval_2b': 7664, 'medieval_2c': 7664, 'medieval_2d': 7664, 'medieval_2e': 7664, 'medieval_2f': 6352, 'medieval_3a': 7664}`.
-- Semantic bucket sample counts: `{'frame': 2128, 'opening': 20638, 'roof': 13181, 'wall': 2292, 'window': 21761}`.
-- Candidate bucket counts: `{'frame': 2128, 'opening': 81064, 'roof': 17740, 'wall': 2292, 'window': 54512}`.
+- Prototype tensor shape: `(65, 5, 5, 5)`.
+- Feature center shape: `(70, 74)`.
+- Feature info: `{'encoding': 'onehot_per_voxel_truncated_svd_plus_architectural_descriptors_plus_height', 'onehot_shape': [60000, 48125], 'semantic_descriptor_columns': ['air_fraction', 'boundary_contact_fraction', 'air_nonair_interface_fraction', 'window_fraction', 'opening_fraction', 'roof_fraction', 'frame_fraction', 'wall_fraction', 'architectural_score'], 'semantic_feature_weight': 4.0, 'svd_components': 64, 'svd_explained_variance_ratio_sum': 0.44600555300712585}`.
+- Largest cluster sizes: `[(44, 2140), (5, 1806), (28, 1805), (55, 1618), (33, 1614), (17, 1613), (48, 1501), (0, 1415), (42, 1398), (40, 1310)]`.
+- Prototype air fractions: `[0.656, 0.408, 0.528, 0.64, 0.664, 0.608, 0.6, 0.688, 0.696, 0.4, 0.656, 0.528, 0.4, 0.392, 0.504, 0.56, 0.536, 0.608, 0.56, 0.648, 0.4, 0.664, 0.4, 0.616, 0.384, 0.656, 0.672, 0.648, 0.688, 0.464, 0.608, 0.584, 0.496, 0.504, 0.688, 0.64, 0.688, 0.68, 0.504, 0.584, 0.68, 0.648, 0.6, 0.664, 0.68, 0.608, 0.696, 0.544, 0.616, 0.544, 0.664, 0.672, 0.632, 0.656, 0.592, 0.632, 0.64, 0.464, 0.696, 0.568, 0.512, 0.544, 0.632, 0.616, 0.52]`.
+- Prototype non-air voxel counts: `[43, 74, 59, 45, 42, 49, 50, 39, 38, 75, 43, 59, 75, 76, 62, 55, 58, 49, 55, 44, 75, 42, 75, 48, 77, 43, 41, 44, 39, 67, 49, 52, 63, 62, 39, 45, 39, 40, 62, 52, 40, 44, 50, 42, 40, 49, 38, 57, 48, 57, 42, 41, 46, 43, 51, 46, 45, 67, 38, 54, 61, 57, 46, 48, 60]`.
+- Source sample counts: `{'medieval_1a': 7665, 'medieval_2a': 7665, 'medieval_2b': 7665, 'medieval_2c': 7665, 'medieval_2d': 7664, 'medieval_2e': 7664, 'medieval_2f': 6348, 'medieval_3a': 7664}`.
+- Semantic bucket sample counts: `{'frame': 2032, 'opening': 19127, 'roof': 12785, 'wall': 2248, 'window': 20251, 'field': 3557}`.
+- Candidate bucket counts: `{'field': 11948, 'frame': 2032, 'opening': 80656, 'roof': 17736, 'wall': 2248, 'window': 54384}`.
+- Prototype pruning: `{'field_prototype_kind_counts': {'log': 2, 'slab': 2}, 'pruned_field_prototypes': 5}`.
 
 Held-out source distance ratios:
-- medieval_1a: 1.000
-- medieval_2a: 1.011
-- medieval_2b: 1.055
-- medieval_2c: 1.048
-- medieval_2d: 1.033
-- medieval_2e: 1.138
-- medieval_2f: 0.994
-- medieval_3a: 1.077
+- medieval_1a: 1.051
+- medieval_2a: 1.058
+- medieval_2b: 1.095
+- medieval_2c: 1.096
+- medieval_2d: 1.377
+- medieval_2e: 1.419
+- medieval_2f: 1.037
+- medieval_3a: 1.115
+
+Held-out sources needing inspection:
+- medieval_2d: 1.377x train distance
+- medieval_2e: 1.419x train distance
 
 Clusters with at least 80% of samples from a single source:
-- cluster 68: size 535, medieval_3a share 100.0%
-- cluster 78: size 296, medieval_2e share 100.0%
+- cluster 9: size 767, medieval_2e share 100.0%
+- cluster 11: size 266, medieval_2e share 100.0%
+- cluster 12: size 402, medieval_2e share 100.0%
+- cluster 20: size 1197, medieval_2d share 100.0%
+- cluster 22: size 295, medieval_2d share 100.0%
+- cluster 23: size 328, medieval_2e share 100.0%
+- cluster 25: size 321, medieval_2e share 100.0%
+- cluster 30: size 198, medieval_2d share 100.0%
+- cluster 35: size 221, medieval_2d share 100.0%
+- cluster 41: size 740, medieval_3a share 80.5%
+- cluster 56: size 80, medieval_2d share 100.0%
 
 ## Recommended Next Steps Before Phase III
 

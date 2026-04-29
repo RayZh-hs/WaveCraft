@@ -63,6 +63,7 @@ def main() -> None:
     k_rows = evaluation["k_evaluation"]
     best = max(k_rows, key=lambda item: item["silhouette"] if item["silhouette"] is not None else -1)
     feature_info = evaluation.get("feature_info", {})
+    prototype_pruning = evaluation.get("prototype_pruning", {})
     transform_remapping = metadata.get("category_transform_remapping", {})
     source_balanced = evaluation["patch_stats"].get("balanced_by_source", False)
     heldout = evaluation.get("heldout_evaluation", [])
@@ -93,6 +94,7 @@ def main() -> None:
         f"- Phase II found {evaluation['patch_stats'].get('density_candidates', evaluation['patch_stats']['total_eligible_patches'])} density candidates, retained {evaluation['patch_stats']['total_eligible_patches']} architectural 5x5x5 patches, and clustered a sampled {evaluation['patch_stats']['sampled_patches']} patches.",
         f"- Dense material chunks rejected before clustering: {evaluation['patch_stats'].get('rejected_dense', 0)}.",
         f"- Low-information single-kind sheets/columns rejected before clustering: {evaluation['patch_stats'].get('rejected_low_information', 0)}.",
+        f"- Socket-useful simple field prototypes are capped by kind: {prototype_pruning.get('field_prototype_kind_counts', {})}; pruned by cap: {prototype_pruning.get('pruned_field_prototypes', 0)}.",
         f"- The selected prototypes are medoids, so every exported tile is an actual observed patch rather than an averaged block soup.",
         f"- The transform sample counts are balanced: {dict(transform_counts)}.",
         f"- Semantic bucket sample counts are balanced where available: {dict(semantic_bucket_counts)}.",
@@ -122,6 +124,7 @@ def main() -> None:
         f"- Source sample counts: `{dict(source_counts)}`.",
         f"- Semantic bucket sample counts: `{dict(semantic_bucket_counts)}`.",
         f"- Candidate bucket counts: `{evaluation['patch_stats'].get('candidate_bucket_counts', {})}`.",
+        f"- Prototype pruning: `{prototype_pruning}`.",
     ]
 
     if heldout:
