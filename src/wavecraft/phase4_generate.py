@@ -247,7 +247,13 @@ def run_solver(
     )
 
 
-def reconstruct_overlapping_volume(chosen_tiles: np.ndarray, prototypes: np.ndarray, palette_size: int) -> np.ndarray:
+def reconstruct_overlapping_volume(
+    chosen_tiles: np.ndarray,
+    prototypes: np.ndarray,
+    palette_size: int,
+    air_id: int,
+    solid_vote_weight: float,
+) -> tuple[np.ndarray, dict[str, Any]]:
     grid_y, grid_z, grid_x = chosen_tiles.shape
     window_y, window_z, window_x = prototypes.shape[1:]
     output_shape = (grid_y + window_y - 1, grid_z + window_z - 1, grid_x + window_x - 1)
@@ -261,7 +267,22 @@ def reconstruct_overlapping_volume(chosen_tiles: np.ndarray, prototypes: np.ndar
                     for pz in range(window_z):
                         for px in range(window_x):
                             votes[y + py, z + pz, x + px, int(patch[py, pz, px])] += 1
-    return np.argmax(votes, axis=-1).astype(np.uint16)
+
+    raw_majority = np.argmax(votes, axis=-1).astype(np.uint16)
+    scores = votes.astype(np.float32)
+    non_air_categories = np.ones(palette_size, dtype=bool)
+    non_air_categories[air_id] = False
+    scores[..., non_air_categories] *= np.float32(solid_vote_weight)
+    weighted = np.argmax(scores, axis=-1).astype(np.uint16)
+
+    stats = {
+        "solid_vote_weight": float(solid_vote_weight),
+        "raw_majority_non_air_voxels": int(np.count_nonzero(raw_majority != air_id)),
+        "raw_majority_air_fraction": float(np.count_nonzero(raw_majority == air_id) / raw_majority.size),
+        "weighted_non_air_voxels": int(np.count_nonzero(weighted != air_id)),
+        "weighted_air_fraction": float(np.count_nonzero(weighted == air_id) / weighted.size),
+    }
+    return weighted, stats
 
 
 def stable_fraction(seed: int, y: int, z: int, x: int, salt: int) -> float:
@@ -359,10 +380,14 @@ def main() -> None:
     parser.add_argument("--allow-dead-end-tiles", action="store_true")
     parser.add_argument("--repair-dead-ends", action="store_true")
     parser.add_argument("--max-repair-overlap-mismatch", type=float, default=0.35)
+    parser.add_argument("--solid-vote-weight", type=float, default=5.0)
     parser.add_argument("--variation-rate", type=float, default=0.08)
     parser.add_argument("--ornament-rate", type=float, default=0.004)
     parser.add_argument("--data-version", type=int, default=4556)
     args = parser.parse_args()
+
+    if args.solid_vote_weight <= 0.0:
+        raise SystemExit("--solid-vote-weight must be positive")
 
     metadata = load_json(args.phase1_dir / "metadata.json")
     rules = np.load(args.phase3_dir / "ruleset.npz")
@@ -386,7 +411,13 @@ def main() -> None:
         retries=args.retries,
         max_backtracks=args.max_backtracks,
     )
-    generated_categories = reconstruct_overlapping_volume(chosen_tiles, prototypes, len(metadata["palette"]))
+    generated_categories, reconstruction_stats = reconstruct_overlapping_volume(
+        chosen_tiles,
+        prototypes,
+        len(metadata["palette"]),
+        int(metadata["air_id"]),
+        args.solid_vote_weight,
+    )
     blocks, block_palette, post_stats = volume_to_block_ids(
         generated_categories,
         metadata["palette"],
@@ -413,6 +444,7 @@ def main() -> None:
             "propagations": solve_stats.propagations,
             "max_depth": solve_stats.max_depth,
         },
+        "reconstruction": reconstruction_stats,
         "tile_counts": {str(tile): int(count) for tile, count in tile_counts.most_common()},
         "post_processing": post_stats,
         "output_schematic": str(args.output),
@@ -437,6 +469,13 @@ def main() -> None:
         f"- Allowed directional adjacencies after preparation: {rule_stats['allowed_adjacency_count']}",
         f"- Dead-end tile avoidance: {rule_stats['avoid_dead_end_tiles']}",
         f"- Dead-end repair enabled: {rule_stats['repair_dead_ends']}",
+        "",
+        "## Reconstruction",
+        "",
+        f"- Solid vote weight: {reconstruction_stats['solid_vote_weight']:.2f}",
+        f"- Raw majority non-air voxels: {reconstruction_stats['raw_majority_non_air_voxels']}",
+        f"- Weighted non-air voxels: {reconstruction_stats['weighted_non_air_voxels']}",
+        f"- Weighted air fraction: {reconstruction_stats['weighted_air_fraction']:.1%}",
         "",
         "## Post-Processing",
         "",

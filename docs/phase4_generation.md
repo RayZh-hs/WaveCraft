@@ -16,6 +16,13 @@ Output schematic: `datasets/phase4/generated_house.schem`.
 - Dead-end tile avoidance: True
 - Dead-end repair enabled: False
 
+## Reconstruction
+
+- Solid vote weight: 5.00
+- Raw majority non-air voxels: 631
+- Weighted non-air voxels: 1724
+- Weighted air fraction: 45.0%
+
 ## Post-Processing
 
 - Palette variation rate: 0.080
