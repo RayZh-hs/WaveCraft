@@ -468,6 +468,7 @@ def analyze_tiles(
         indices = np.flatnonzero(labels == cluster_id)
         source_counts = Counter(source_rows[int(index)]["source"] for index in indices)
         transform_counts = Counter(source_rows[int(index)]["transform"] for index in indices)
+        semantic_bucket_counts = Counter(source_rows[int(index)].get("semantic_bucket", "unknown") for index in indices)
         values, counts = np.unique(patch, return_counts=True)
         total = int(patch.size)
         composition = [
@@ -519,6 +520,7 @@ def analyze_tiles(
                 "dominant_non_air": dominant_non_air,
                 "source_counts": dict(source_counts.most_common()),
                 "transform_counts": dict(transform_counts.most_common()),
+                "semantic_bucket_counts": dict(semantic_bucket_counts.most_common()),
                 "top_source": {"source": max_source[0], "count": int(max_source[1])},
                 "medoid_source": medoid_source,
                 "bounds": patch_bounds(patch, air_id),
@@ -547,6 +549,7 @@ def analyze_tiles(
         "heldout_evaluation": evaluation.get("heldout_evaluation", []),
         "k_evaluation": evaluation.get("k_evaluation", []),
         "source_counts": evaluation.get("patch_stats", {}).get("actual_source_counts", {}),
+        "semantic_bucket_counts": evaluation.get("patch_stats", {}).get("actual_bucket_counts", {}),
     }
     return tiles, global_summary
 
@@ -592,6 +595,7 @@ def render_tile_card(tile: dict[str, Any], patch: np.ndarray, palette: list[str]
     flags = "".join(f'<span class="flag">{html.escape(flag)}</span>' for flag in tile["flags"]) or '<span class="flag quiet">ok</span>'
     source_rows = table_rows([[source, count] for source, count in list(tile["source_counts"].items())[:5]])
     transform_rows = table_rows([[transform, count] for transform, count in tile["transform_counts"].items()])
+    bucket_rows = table_rows([[bucket, count] for bucket, count in tile["semantic_bucket_counts"].items()])
     medoid = tile["medoid_source"]
     medoid_text = "n/a"
     if medoid:
@@ -630,6 +634,8 @@ def render_tile_card(tile: dict[str, Any], patch: np.ndarray, palette: list[str]
           <table><thead><tr><th>Source</th><th>Count</th></tr></thead><tbody>{source_rows}</tbody></table>
           <table><thead><tr><th>Transform</th><th>Count</th></tr></thead><tbody>{transform_rows}</tbody></table>
         </div>
+        <h3>Semantic Buckets</h3>
+        <table><thead><tr><th>Bucket</th><th>Count</th></tr></thead><tbody>{bucket_rows}</tbody></table>
       </details>
     </div>
   </div>
@@ -670,6 +676,7 @@ def render_html(
     )
     tile_cards = "\n".join(render_tile_card(tile, prototypes[tile["tile_index"]], palette, air_id) for tile in tiles)
     source_rows = table_rows([[source, count] for source, count in summary["source_counts"].items()])
+    bucket_rows = table_rows([[bucket, count] for bucket, count in summary["semantic_bucket_counts"].items()])
     shape_rows = table_rows([[shape, count] for shape, count in list(summary["shape_counts"].items())[:12]])
     flag_text = ", ".join(f"{flag}: {count}" for flag, count in flag_counts.items()) or "none"
 
@@ -843,10 +850,12 @@ def render_html(
           <table><thead><tr><th>Source</th><th>Patches</th><th>Distance Ratio</th></tr></thead><tbody>{heldout_rows}</tbody></table>
         </div>
         <div>
-          <h3>Prototype Shape Counts</h3>
-          <table><thead><tr><th>Shape</th><th>Count</th></tr></thead><tbody>{shape_rows}</tbody></table>
+          <h3>Semantic Buckets</h3>
+          <table><thead><tr><th>Bucket</th><th>Count</th></tr></thead><tbody>{bucket_rows}</tbody></table>
         </div>
       </div>
+      <h3>Prototype Shape Counts</h3>
+      <table><thead><tr><th>Shape</th><th>Count</th></tr></thead><tbody>{shape_rows}</tbody></table>
       <div class="legend">
         <span><strong>ST</strong> stairs, suffix N/E/S/W is facing, ^ top half, v bottom half</span>
         <span><strong>SL</strong> slab, ^ top, v bottom, 2 double</span>

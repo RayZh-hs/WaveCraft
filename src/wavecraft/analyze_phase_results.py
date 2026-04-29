@@ -40,6 +40,7 @@ def main() -> None:
     source_rows = list(csv.DictReader((args.phase2_dir / "sampled_patch_sources.csv").open(encoding="utf-8")))
     source_counts = Counter(row["source"] for row in source_rows)
     transform_counts = Counter(row["transform"] for row in source_rows)
+    semantic_bucket_counts = Counter(row.get("semantic_bucket", "unknown") for row in source_rows)
     cluster_sizes = Counter(int(label) for label in labels)
     prototype_air_fractions = [float((prototype == air_id).mean()) for prototype in prototypes]
     prototype_nonair_counts = [int((prototype != air_id).sum()) for prototype in prototypes]
@@ -68,7 +69,7 @@ def main() -> None:
     weak_holdouts = [
         item
         for item in heldout
-        if item.get("heldout_to_train_distance_ratio", 0.0) >= 1.5
+        if item.get("heldout_to_train_distance_ratio", 0.0) >= 1.25
     ]
 
     lines = [
@@ -76,20 +77,25 @@ def main() -> None:
         "",
         "## Verdict",
         "",
-        "The corrected result is methodologically much sounder than the first pass: the two largest defects, ordinal category distances and invalid directional augmentation, have been addressed.",
-        "It is now reasonable to treat the exported medoids as a Phase II candidate tile library for qualitative inspection and early adjacency experiments.",
-        "It is still not strong enough to treat as a final kitbash library without manual/visual review, because cluster separation is modest and held-out diagnostics show two structures are poorly represented by the others.",
+        "The corrected result is better aligned with building generation than the previous density-only extraction.",
+        "Phase II now filters dense material chunks, balances the sample across architectural buckets, and appends semantic descriptors so windows, openings, roof pieces, frames, and walls can influence clustering instead of being treated as rare voxel noise.",
+        "It is reasonable to treat the exported medoids as a Phase II candidate tile library for qualitative inspection and early adjacency experiments.",
+        "It is still not a final kitbash library without manual/visual review, because the extractor still learns local 5x5x5 neighborhoods rather than explicitly labeled complete building modules.",
         "",
         "## What Looks Sound",
         "",
         f"- The schematic conversion is reproducible and Phase I produced {metadata['array_count']} arrays from {metadata['source_count']} source schematics.",
         f"- The output structural palette has {len(palette)} categories including air, and ornaments are masked out of the training arrays.",
         f"- Direction-aware augmentation is enabled: {bool(transform_remapping.get('enabled'))}.",
-        f"- Feature encoding is `{feature_info.get('encoding')}`, so arbitrary palette IDs are no longer treated as ordinal distances.",
+        f"- Feature encoding is `{feature_info.get('encoding')}`, so arbitrary palette IDs are no longer treated as ordinal distances and architectural descriptors now affect clustering.",
         f"- Source-balanced sampling is enabled: {source_balanced}.",
-        f"- Phase II found {evaluation['patch_stats']['total_eligible_patches']} eligible 5x5x5 patches and clustered a sampled {evaluation['patch_stats']['sampled_patches']} patches.",
+        f"- Semantic-bucket-balanced sampling is enabled: {evaluation['patch_stats'].get('balanced_by_bucket', False)}.",
+        f"- Phase II found {evaluation['patch_stats'].get('density_candidates', evaluation['patch_stats']['total_eligible_patches'])} density candidates, retained {evaluation['patch_stats']['total_eligible_patches']} architectural 5x5x5 patches, and clustered a sampled {evaluation['patch_stats']['sampled_patches']} patches.",
+        f"- Dense material chunks rejected before clustering: {evaluation['patch_stats'].get('rejected_dense', 0)}.",
+        f"- Low-information single-kind sheets/columns rejected before clustering: {evaluation['patch_stats'].get('rejected_low_information', 0)}.",
         f"- The selected prototypes are medoids, so every exported tile is an actual observed patch rather than an averaged block soup.",
         f"- The transform sample counts are balanced: {dict(transform_counts)}.",
+        f"- Semantic bucket sample counts are balanced where available: {dict(semantic_bucket_counts)}.",
         "",
         "## Remaining Soundness Risks",
         "",
@@ -97,10 +103,10 @@ def main() -> None:
         f"   The best tested silhouette is {best['silhouette']:.4f} at k={best['k']}. This is usable for exploration, but not strong evidence that the learned tiles form crisp architectural parts.",
         "",
         "2. Some sources remain structurally distinct.",
-        "   Held-out source distances above 1.5x indicate that a source contains patch patterns not well represented by the rest of the corpus.",
+        "   Held-out source distances above 1.25x indicate that a source contains patch patterns not well represented by the rest of the corpus.",
         "",
-        "3. Some prototypes are still homogeneous material fields.",
-        "   These may be valid floor/wall/foundation pieces, but they should be manually reviewed so they do not crowd out more informative transition pieces.",
+        "3. Some prototypes may still be local cut-throughs rather than complete semantic objects.",
+        "   The new buckets reduce random-looking chunks, but a 5x5x5 sliding window can still intersect only part of a window, roof ridge, or wall segment.",
         "",
         "4. The held-out evaluation is based on the shared SVD embedding.",
         "   It is useful as a diagnostic, but a stricter validation would fit the dimensionality reduction on training sources only for each hold-out fold.",
@@ -114,6 +120,8 @@ def main() -> None:
         f"- Prototype air fractions: `{[round(value, 3) for value in prototype_air_fractions]}`.",
         f"- Prototype non-air voxel counts: `{prototype_nonair_counts}`.",
         f"- Source sample counts: `{dict(source_counts)}`.",
+        f"- Semantic bucket sample counts: `{dict(semantic_bucket_counts)}`.",
+        f"- Candidate bucket counts: `{evaluation['patch_stats'].get('candidate_bucket_counts', {})}`.",
     ]
 
     if heldout:
@@ -145,12 +153,12 @@ def main() -> None:
             "",
             "## Recommended Next Steps Before Phase III",
             "",
-            "1. Inspect `datasets/phase2/previews/prototypes.svg` and prune or merge homogeneous duplicate tiles.",
+            "1. Inspect `datasets/phase2/previews/prototypes.svg` and `datasets/phase2/inspection/index.html` to prune or merge local cut-throughs that still do not read as usable building parts.",
             "2. Run a stricter leave-one-source-out validation where SVD is fit only on training sources for each fold.",
-            "3. Consider increasing the tested k range around 35-60 and adding a duplicate-patch cap so transition pieces are not underrepresented.",
+            "3. Consider increasing the tested k range around 50-90 now that buckets preserve rarer feature classes.",
             "4. Use the current candidate tiles for a small adjacency-mining dry run, but keep the rule set marked experimental until visual and held-out checks pass.",
             "",
-            "Bottom line: the corrected result is sound enough for Phase II exploration and limited Phase III prototyping, but not yet a final WFC-ready tile catalog.",
+            "Bottom line: the corrected result should generate less material noise and more recognizable architectural fragments, but it still needs visual pruning before becoming a final WFC-ready tile catalog.",
         ]
     )
 
