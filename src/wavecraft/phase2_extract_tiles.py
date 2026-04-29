@@ -307,6 +307,18 @@ def embedded_holdout_evaluation(
 def short_label(category: str) -> str:
     if category == "air":
         return " . "
+    props = {}
+    if "[" in category:
+        _, raw_props = category.split("[", 1)
+        for item in raw_props.rstrip("]").split(","):
+            if "=" in item:
+                key, value = item.split("=", 1)
+                props[key] = value
+    kind = category.split("[", 1)[0].split(":", 1)[1] if ":" in category.split("[", 1)[0] else ""
+    if props.get("stripped") == "true" and kind in {"log", "wood"}:
+        return f"S{kind[0].upper()}{props.get('axis', '')[:1]}".ljust(3)
+    if props.get("stripped") == "true":
+        return "SFL"
     base = category.split("[", 1)[0]
     pieces = base.replace(":", "_").split("_")
     letters = "".join(piece[0] for piece in pieces if piece)
@@ -334,13 +346,13 @@ def color_for_category(category: str) -> str:
     if category == "air":
         return "#f8fafc"
     if category.startswith("wood_dark"):
-        return "#5b3a29"
+        return "#7a543e" if "stripped=true" in category else "#5b3a29"
     if category.startswith("wood_medium"):
-        return "#9a6a3a"
+        return "#c08b51" if "stripped=true" in category else "#9a6a3a"
     if category.startswith("wood_light"):
-        return "#d3b06b"
+        return "#e3c77f" if "stripped=true" in category else "#d3b06b"
     if category.startswith("wood_red"):
-        return "#9e3f36"
+        return "#c45b4e" if "stripped=true" in category else "#9e3f36"
     if category.startswith("dark_stone"):
         return "#334155"
     if category.startswith("stone"):

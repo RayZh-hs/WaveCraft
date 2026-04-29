@@ -17,7 +17,7 @@ Loaded 8 source schematics and wrote 32 augmented structural arrays.
 
 ## Palette Reduction
 
-Reduced 767 raw block states to 384 output structural categories including air.
+Reduced 767 raw block states to 385 output structural categories including air.
 An internal `ornament` marker is used during masking, but ornamental voxels are written as air in the cleaned arrays and are not part of the output palette.
 Material variants are collapsed before learning: dark stones such as deepslate, blackstone, basalt, and tuff map to `dark_stone`, while wood species map into broad tonal families and keep geometry/orientation where it affects structure.
 Augmentations remap directional categories after spatial transforms, including `facing` values, directional side keys, stair handedness, door hinges, and x/z axes.
@@ -25,19 +25,19 @@ Augmentations remap directional categories after spatial transforms, including `
 Most common raw reductions before masking:
 
 - `air`: 331242
-- `wood_medium:log[axis=y]`: 37297
+- `wood_medium:log[axis=y,stripped=true]`: 37297
 - `stone:slab[type=bottom]`: 12305
 - `ornament`: 4243
 - `wood_dark:planks`: 3381
 - `stone:full`: 2287
-- `wood_dark:log[axis=y]`: 2075
+- `wood_dark:log[axis=y,stripped=true]`: 2075
 - `stone:bricks`: 1883
 - `wood_light:planks`: 914
 - `wood_medium:planks`: 779
 - `dark_stone:tiles`: 713
 - `wood_dark:slab[type=top]`: 607
-- `wood_dark:log[axis=x]`: 590
-- `wood_dark:log[axis=z]`: 527
+- `wood_dark:log[axis=x,stripped=true]`: 590
+- `wood_dark:log[axis=z,stripped=true]`: 527
 - `dark_stone:bricks`: 489
 - `dark_stone:stairs[facing=south,half=bottom,shape=straight]`: 390
 - `wood_dark:stairs[facing=east,half=top,shape=straight]`: 389

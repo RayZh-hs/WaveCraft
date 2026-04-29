@@ -3,30 +3,30 @@
 Extracted 5x5x5 overlapping patches from the Phase I augmented structural arrays, excluding windows with more than 70% air.
 Eligible patches found: 310460. Sampled patches clustered: 60000.
 Sampling is source-balanced: True. Actual source sample counts: {'medieval_1a': 7664, 'medieval_2a': 7664, 'medieval_2b': 7664, 'medieval_2c': 7664, 'medieval_2d': 7664, 'medieval_2e': 7664, 'medieval_2f': 6352, 'medieval_3a': 7664}.
-Feature encoding: sparse one-hot per voxel -> 64 SVD components plus relative height; explained variance ratio sum 0.5532.
+Feature encoding: sparse one-hot per voxel -> 64 SVD components plus relative height; explained variance ratio sum 0.5531.
 
 ## K Selection
 
 | k | inertia | silhouette |
 |---:|---:|---:|
-| 30 | 1128036.62 | 0.2005 |
-| 40 | 1068944.38 | 0.2078 |
-| 50 | 1031306.56 | 0.2045 |
+| 30 | 1125344.62 | 0.2001 |
+| 40 | 1074643.75 | 0.2009 |
+| 50 | 1025259.00 | 0.2053 |
 
-Chosen k: 40. Prototype tiles retained after pruning clusters smaller than 3: 40.
+Chosen k: 50. Prototype tiles retained after pruning clusters smaller than 3: 50.
 
 ## Held-Out Source Diagnostics
 
 | Held-out source | Train patches | Held-out patches | Held-out/train distance ratio |
 |---|---:|---:|---:|
-| medieval_1a | 52336 | 7664 | 1.159 |
-| medieval_2a | 52336 | 7664 | 1.153 |
-| medieval_2b | 52336 | 7664 | 1.242 |
-| medieval_2c | 52336 | 7664 | 1.227 |
-| medieval_2d | 52336 | 7664 | 2.200 |
-| medieval_2e | 52336 | 7664 | 2.467 |
-| medieval_2f | 53648 | 6352 | 1.154 |
-| medieval_3a | 52336 | 7664 | 1.225 |
+| medieval_1a | 52336 | 7664 | 1.173 |
+| medieval_2a | 52336 | 7664 | 1.176 |
+| medieval_2b | 52336 | 7664 | 1.259 |
+| medieval_2c | 52336 | 7664 | 1.243 |
+| medieval_2d | 52336 | 7664 | 2.243 |
+| medieval_2e | 52336 | 7664 | 2.558 |
+| medieval_2f | 53648 | 6352 | 1.152 |
+| medieval_3a | 52336 | 7664 | 1.254 |
 
 ## Observations
 

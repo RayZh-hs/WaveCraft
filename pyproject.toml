@@ -14,7 +14,8 @@ wavecraft-convert-bp = "wavecraft.convert_bp_to_schem:main"
 wavecraft-phase1 = "wavecraft.phase1_prepare_dataset:main"
 wavecraft-phase2 = "wavecraft.phase2_extract_tiles:main"
 wavecraft-analyze-results = "wavecraft.analyze_phase_results:main"
+wavecraft-render-tiles = "wavecraft.render_tile_inspector:main"
+wavecraft-export-tile-schem = "wavecraft.export_tile_schematic:main"
 
 [tool.uv]
 package = true
-

@@ -9,7 +9,7 @@ It is still not strong enough to treat as a final kitbash library without manual
 ## What Looks Sound
 
 - The schematic conversion is reproducible and Phase I produced 32 arrays from 8 source schematics.
-- The output structural palette has 384 categories including air, and ornaments are masked out of the training arrays.
+- The output structural palette has 385 categories including air, and ornaments are masked out of the training arrays.
 - Direction-aware augmentation is enabled: True.
 - Feature encoding is `onehot_per_voxel_truncated_svd_plus_height`, so arbitrary palette IDs are no longer treated as ordinal distances.
 - Source-balanced sampling is enabled: True.
@@ -20,7 +20,7 @@ It is still not strong enough to treat as a final kitbash library without manual
 ## Remaining Soundness Risks
 
 1. Cluster separation is still modest.
-   The best tested silhouette is 0.2078 at k=40. This is usable for exploration, but not strong evidence that the learned tiles form crisp architectural parts.
+   The best tested silhouette is 0.2053 at k=50. This is usable for exploration, but not strong evidence that the learned tiles form crisp architectural parts.
 
 2. Some sources remain structurally distinct.
    Held-out source distances above 1.5x indicate that a source contains patch patterns not well represented by the rest of the corpus.
@@ -33,40 +33,40 @@ It is still not strong enough to treat as a final kitbash library without manual
 
 ## Diagnostics
 
-- Prototype tensor shape: `(40, 5, 5, 5)`.
-- Feature center shape: `(40, 65)`.
-- Feature info: `{'encoding': 'onehot_per_voxel_truncated_svd_plus_height', 'onehot_shape': [60000, 48000], 'svd_components': 64, 'svd_explained_variance_ratio_sum': 0.5532481670379639}`.
-- Largest cluster sizes: `[(4, 4728), (2, 3591), (22, 3197), (7, 2553), (18, 2302), (16, 2208), (12, 2091), (24, 1893), (34, 1831), (9, 1778)]`.
-- Prototype air fractions: `[0.64, 0.632, 0.0, 0.456, 0.0, 0.68, 0.608, 0.616, 0.6, 0.672, 0.672, 0.456, 0.632, 0.6, 0.664, 0.52, 0.64, 0.672, 0.672, 0.456, 0.584, 0.656, 0.672, 0.56, 0.568, 0.568, 0.16, 0.376, 0.608, 0.544, 0.56, 0.48, 0.648, 0.4, 0.648, 0.584, 0.568, 0.64, 0.568, 0.4]`.
-- Prototype non-air voxel counts: `[45, 46, 125, 68, 125, 40, 49, 48, 50, 41, 41, 68, 46, 50, 42, 60, 45, 41, 41, 68, 52, 43, 41, 55, 54, 54, 105, 78, 49, 57, 55, 65, 44, 75, 44, 52, 54, 45, 54, 75]`.
+- Prototype tensor shape: `(50, 5, 5, 5)`.
+- Feature center shape: `(50, 65)`.
+- Feature info: `{'encoding': 'onehot_per_voxel_truncated_svd_plus_height', 'onehot_shape': [60000, 48125], 'svd_components': 64, 'svd_explained_variance_ratio_sum': 0.5531390905380249}`.
+- Largest cluster sizes: `[(1, 5019), (2, 3584), (35, 1947), (3, 1884), (9, 1848), (20, 1811), (16, 1760), (8, 1734), (22, 1630), (12, 1619)]`.
+- Prototype air fractions: `[0.664, 0.0, 0.0, 0.664, 0.624, 0.664, 0.544, 0.6, 0.672, 0.672, 0.568, 0.68, 0.672, 0.552, 0.56, 0.688, 0.608, 0.4, 0.2, 0.648, 0.672, 0.448, 0.568, 0.584, 0.448, 0.576, 0.592, 0.656, 0.664, 0.544, 0.64, 0.6, 0.64, 0.616, 0.68, 0.68, 0.68, 0.584, 0.536, 0.528, 0.6, 0.64, 0.4, 0.616, 0.2, 0.672, 0.648, 0.496, 0.552, 0.52]`.
+- Prototype non-air voxel counts: `[42, 125, 125, 42, 47, 42, 57, 50, 41, 41, 54, 40, 41, 56, 55, 39, 49, 75, 100, 44, 41, 69, 54, 52, 69, 53, 51, 43, 42, 57, 45, 50, 45, 48, 40, 40, 40, 52, 58, 59, 50, 45, 75, 48, 100, 41, 44, 63, 56, 60]`.
 - Source sample counts: `{'medieval_1a': 7664, 'medieval_2a': 7664, 'medieval_2b': 7664, 'medieval_2c': 7664, 'medieval_2d': 7664, 'medieval_2e': 7664, 'medieval_2f': 6352, 'medieval_3a': 7664}`.
 
 Held-out source distance ratios:
-- medieval_1a: 1.159
-- medieval_2a: 1.153
-- medieval_2b: 1.242
-- medieval_2c: 1.227
-- medieval_2d: 2.200
-- medieval_2e: 2.467
-- medieval_2f: 1.154
-- medieval_3a: 1.225
+- medieval_1a: 1.173
+- medieval_2a: 1.176
+- medieval_2b: 1.259
+- medieval_2c: 1.243
+- medieval_2d: 2.243
+- medieval_2e: 2.558
+- medieval_2f: 1.152
+- medieval_3a: 1.254
 
 Held-out sources needing inspection:
-- medieval_2d: 2.200x train distance
-- medieval_2e: 2.467x train distance
+- medieval_2d: 2.243x train distance
+- medieval_2e: 2.558x train distance
 
 Clusters with at least 80% of samples from a single source:
-- cluster 2: size 3591, medieval_2d share 100.0%
-- cluster 4: size 4728, medieval_2e share 100.0%
-- cluster 8: size 302, medieval_2d share 100.0%
-- cluster 13: size 391, medieval_2e share 100.0%
-- cluster 26: size 656, medieval_2e share 100.0%
-- cluster 33: size 270, medieval_2d share 100.0%
-- cluster 39: size 629, medieval_2d share 100.0%
+- cluster 1: size 5019, medieval_2e share 100.0%
+- cluster 2: size 3584, medieval_2d share 100.0%
+- cluster 18: size 529, medieval_2d share 100.0%
+- cluster 21: size 481, medieval_2e share 100.0%
+- cluster 40: size 304, medieval_2d share 100.0%
+- cluster 42: size 313, medieval_2d share 100.0%
+- cluster 44: size 213, medieval_2e share 100.0%
 
 Solid single-material prototype tiles:
+- tile 1: 125/125 voxels of `wood_medium:log[axis=y,stripped=true]`
 - tile 2: 125/125 voxels of `stone:slab[type=bottom]`
-- tile 4: 125/125 voxels of `wood_medium:log[axis=y]`
 
 ## Recommended Next Steps Before Phase III
 

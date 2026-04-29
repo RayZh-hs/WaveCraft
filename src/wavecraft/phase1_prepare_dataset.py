@@ -196,6 +196,11 @@ def material_family(block_name: str) -> str:
 
 
 def geometry_kind(block_name: str) -> str:
+    if block_name.endswith(("crimson_stem", "warped_stem")):
+        return "log"
+    if block_name.endswith(("crimson_hyphae", "warped_hyphae")):
+        return "wood"
+
     suffixes = (
         "stairs",
         "slab",
@@ -292,6 +297,7 @@ def is_ornamental(block_name: str, family: str, kind: str) -> bool:
 def reduce_state(state: str) -> tuple[str, bool]:
     base, props = parse_block_state(state)
     block_name = base.removeprefix("minecraft:")
+    stripped = block_name.startswith("stripped_")
     family = material_family(block_name)
     if family == AIR:
         return AIR, False
@@ -302,6 +308,8 @@ def reduce_state(state: str) -> tuple[str, bool]:
         return ORNAMENT, False
 
     kept = kept_properties(kind, props)
+    if stripped and kind in {"log", "wood", "full"}:
+        kept["stripped"] = "true"
     return f"{family}:{kind}{format_props(kept)}", True
 
 
