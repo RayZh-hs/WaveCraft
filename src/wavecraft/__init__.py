@@ -1,2 +1,1 @@
-"""WaveCraft data preparation and tile extraction tools."""
-
+"""WaveCraft hierarchical Minecraft structure generation tools."""
