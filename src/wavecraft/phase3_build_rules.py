@@ -139,7 +139,12 @@ def assign_patches_to_tiles(
     return assignments, stats, tile_counts
 
 
-def prototype_overlap_mismatch(prototype_a: np.ndarray, prototype_b: np.ndarray, direction: str) -> float:
+def prototype_overlap_collision_fraction(
+    prototype_a: np.ndarray,
+    prototype_b: np.ndarray,
+    direction: str,
+    air_id: int,
+) -> float:
     if direction == "+y":
         left = prototype_a[1:, :, :]
         right = prototype_b[:-1, :, :]
@@ -160,18 +165,20 @@ def prototype_overlap_mismatch(prototype_a: np.ndarray, prototype_b: np.ndarray,
         right = prototype_b[:, :, 1:]
     else:
         raise ValueError(direction)
-    return float(np.count_nonzero(left != right) / left.size)
+    collisions = (left != air_id) & (right != air_id) & (left != right)
+    return float(np.count_nonzero(collisions) / left.size)
 
 
-def overlap_mismatch_table(prototypes: np.ndarray) -> np.ndarray:
+def overlap_collision_table(prototypes: np.ndarray, air_id: int) -> np.ndarray:
     table = np.zeros((len(DIRECTIONS), prototypes.shape[0], prototypes.shape[0]), dtype=np.float32)
     for direction_index, (direction, _delta) in enumerate(DIRECTIONS):
         for tile_a in range(prototypes.shape[0]):
             for tile_b in range(prototypes.shape[0]):
-                table[direction_index, tile_a, tile_b] = prototype_overlap_mismatch(
+                table[direction_index, tile_a, tile_b] = prototype_overlap_collision_fraction(
                     prototypes[tile_a],
                     prototypes[tile_b],
                     direction,
+                    air_id,
                 )
     return table
 
@@ -315,7 +322,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=Path("datasets/phase3"))
     parser.add_argument("--docs-path", type=Path, default=Path("docs/phase3_ruleset.md"))
     parser.add_argument("--max-assignment-distance", type=float, default=0.52)
-    parser.add_argument("--max-overlap-mismatch", type=float, default=0.42)
+    parser.add_argument("--max-overlap-collision-fraction", type=float, default=0.0)
     parser.add_argument("--min-observed-count", type=int, default=1)
     parser.add_argument("--air-mismatch-weight", type=float, default=2.0)
     parser.add_argument("--category-mismatch-weight", type=float, default=1.0)
@@ -378,9 +385,9 @@ def main() -> None:
             }
         )
 
-    overlap_mismatches = overlap_mismatch_table(prototypes)
+    overlap_mismatches = overlap_collision_table(prototypes, air_id)
     observed_allowed = observed_counts >= args.min_observed_count
-    overlap_allowed = overlap_mismatches <= args.max_overlap_mismatch
+    overlap_allowed = overlap_mismatches <= args.max_overlap_collision_fraction
     allowed = observed_allowed & overlap_allowed
 
     for direction, _delta in DIRECTIONS:
@@ -456,7 +463,7 @@ def main() -> None:
             "active_tile_count": int(np.count_nonzero(active_tiles)),
             "window": window,
             "max_assignment_distance": args.max_assignment_distance,
-            "max_overlap_mismatch": args.max_overlap_mismatch,
+            "max_overlap_collision_fraction": args.max_overlap_collision_fraction,
             "min_observed_count": args.min_observed_count,
             "observed_adjacent_pairs": int(observed_pairs),
             "allowed_adjacency_count": int(np.count_nonzero(allowed)),
@@ -495,7 +502,8 @@ def main() -> None:
         "## Constraint Policy",
         "",
         f"- A pair is allowed only when it was observed at least {args.min_observed_count} time(s) in the original houses.",
-        f"- The corresponding medoid prototypes must also agree across the shifted overlap with mismatch fraction <= {args.max_overlap_mismatch:.2f}.",
+        "- Air is treated as empty space in shifted overlaps; air may overlap any category.",
+        f"- Two different non-air categories may overlap only when their collision fraction <= {args.max_overlap_collision_fraction:.2f}.",
         "- Opposite-direction rules are mirrored after mining so the ruleset is symmetric for propagation.",
         f"- Dead-end pruning enabled: {args.prune_dead_ends}.",
         "",
