@@ -18,10 +18,12 @@ Output schematic: `datasets/phase4/generated_house.schem`.
 
 ## Reconstruction
 
-- Solid vote weight: 5.00
+- Non-air union threshold: 0.50
 - Raw majority non-air voxels: 631
-- Weighted non-air voxels: 1724
-- Weighted air fraction: 45.0%
+- Union-poll non-air voxels: 946
+- Union-poll detail voxels: 394
+- Union-poll air fraction: 69.8%
+- Mean non-air probability: 43.1%
 
 ## Post-Processing
 

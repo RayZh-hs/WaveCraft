@@ -11,23 +11,25 @@ Feature encoding: sparse one-hot per voxel -> 64 SVD components plus architectur
 
 | k | inertia | silhouette |
 |---:|---:|---:|
-| 70 | 1084890.38 | 0.1170 |
+| 30 | 1287099.25 | 0.1149 |
+| 40 | 1213564.62 | 0.1141 |
+| 50 | 1171892.62 | 0.1187 |
 
-Chosen k: 70. Prototype tiles retained after pruning clusters smaller than 3: 65.
-Socket-useful simple field prototypes retained by kind: {'log': 2, 'slab': 2}. Field prototypes pruned by cap: 5.
+Chosen k: 50. Prototype tiles retained after pruning clusters smaller than 3: 48.
+Socket-useful simple field prototypes retained by kind: {'log': 2, 'slab': 2}. Field prototypes pruned by cap: 2.
 
 ## Held-Out Source Diagnostics
 
 | Held-out source | Train patches | Held-out patches | Held-out/train distance ratio |
 |---|---:|---:|---:|
-| medieval_1a | 52335 | 7665 | 1.051 |
-| medieval_2a | 52335 | 7665 | 1.058 |
+| medieval_1a | 52335 | 7665 | 1.041 |
+| medieval_2a | 52335 | 7665 | 1.064 |
 | medieval_2b | 52335 | 7665 | 1.095 |
-| medieval_2c | 52335 | 7665 | 1.096 |
-| medieval_2d | 52336 | 7664 | 1.377 |
-| medieval_2e | 52336 | 7664 | 1.419 |
-| medieval_2f | 53652 | 6348 | 1.037 |
-| medieval_3a | 52336 | 7664 | 1.115 |
+| medieval_2c | 52335 | 7665 | 1.101 |
+| medieval_2d | 52336 | 7664 | 1.352 |
+| medieval_2e | 52336 | 7664 | 1.382 |
+| medieval_2f | 53652 | 6348 | 1.033 |
+| medieval_3a | 52336 | 7664 | 1.093 |
 
 ## Observations
 

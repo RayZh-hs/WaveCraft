@@ -247,13 +247,32 @@ def run_solver(
     )
 
 
+def reconstruction_category_weights(palette_categories: list[str], air_id: int) -> np.ndarray:
+    weights = np.ones(len(palette_categories), dtype=np.float32)
+    weights[air_id] = 0.0
+    for category_id, category in enumerate(palette_categories):
+        family, kind, _props = parse_category(category)
+        if family == "air":
+            weights[category_id] = 0.0
+        elif family == "glass" or kind == "pane":
+            weights[category_id] = 12.0
+        elif kind == "door":
+            weights[category_id] = 8.0
+        elif kind in {"fence", "fence_gate", "trapdoor"} or family == "ladder":
+            weights[category_id] = 6.0
+        elif kind in {"stairs", "slab", "wall"}:
+            weights[category_id] = 3.0
+    return weights
+
+
 def reconstruct_overlapping_volume(
     chosen_tiles: np.ndarray,
     prototypes: np.ndarray,
-    palette_size: int,
+    palette_categories: list[str],
     air_id: int,
-    solid_vote_weight: float,
+    non_air_threshold: float,
 ) -> tuple[np.ndarray, dict[str, Any]]:
+    palette_size = len(palette_categories)
     grid_y, grid_z, grid_x = chosen_tiles.shape
     window_y, window_z, window_x = prototypes.shape[1:]
     output_shape = (grid_y + window_y - 1, grid_z + window_z - 1, grid_x + window_x - 1)
@@ -269,20 +288,42 @@ def reconstruct_overlapping_volume(
                             votes[y + py, z + pz, x + px, int(patch[py, pz, px])] += 1
 
     raw_majority = np.argmax(votes, axis=-1).astype(np.uint16)
-    scores = votes.astype(np.float32)
     non_air_categories = np.ones(palette_size, dtype=bool)
     non_air_categories[air_id] = False
-    scores[..., non_air_categories] *= np.float32(solid_vote_weight)
-    weighted = np.argmax(scores, axis=-1).astype(np.uint16)
+
+    total_votes = votes.sum(axis=-1, dtype=np.uint16)
+    non_air_votes = votes[..., non_air_categories].sum(axis=-1, dtype=np.uint16)
+    non_air_probability = np.divide(
+        non_air_votes,
+        total_votes,
+        out=np.zeros(output_shape, dtype=np.float32),
+        where=total_votes > 0,
+    )
+    category_weights = reconstruction_category_weights(palette_categories, air_id)
+    weighted_non_air_scores = votes.astype(np.float32) * category_weights
+    most_probable_non_air = np.argmax(weighted_non_air_scores, axis=-1).astype(np.uint16)
+    union_poll = np.full(output_shape, air_id, dtype=np.uint16)
+    accepted_non_air = (non_air_votes > 0) & (non_air_probability > np.float32(non_air_threshold))
+    union_poll[accepted_non_air] = most_probable_non_air[accepted_non_air]
+    detail_categories = category_weights > 1.0
 
     stats = {
-        "solid_vote_weight": float(solid_vote_weight),
+        "non_air_threshold": float(non_air_threshold),
+        "detail_category_weights": {
+            "glass_or_pane": 12.0,
+            "door": 8.0,
+            "fence_gate_trapdoor_ladder": 6.0,
+            "stairs_slab_wall": 3.0,
+            "structural": 1.0,
+        },
         "raw_majority_non_air_voxels": int(np.count_nonzero(raw_majority != air_id)),
         "raw_majority_air_fraction": float(np.count_nonzero(raw_majority == air_id) / raw_majority.size),
-        "weighted_non_air_voxels": int(np.count_nonzero(weighted != air_id)),
-        "weighted_air_fraction": float(np.count_nonzero(weighted == air_id) / weighted.size),
+        "union_poll_non_air_voxels": int(np.count_nonzero(union_poll != air_id)),
+        "union_poll_air_fraction": float(np.count_nonzero(union_poll == air_id) / union_poll.size),
+        "union_poll_detail_voxels": int(np.count_nonzero(detail_categories[union_poll])),
+        "mean_non_air_probability": float(non_air_probability.mean()),
     }
-    return weighted, stats
+    return union_poll, stats
 
 
 def stable_fraction(seed: int, y: int, z: int, x: int, salt: int) -> float:
@@ -380,14 +421,14 @@ def main() -> None:
     parser.add_argument("--allow-dead-end-tiles", action="store_true")
     parser.add_argument("--repair-dead-ends", action="store_true")
     parser.add_argument("--max-repair-overlap-mismatch", type=float, default=0.35)
-    parser.add_argument("--solid-vote-weight", type=float, default=5.0)
+    parser.add_argument("--non-air-threshold", type=float, default=0.5)
     parser.add_argument("--variation-rate", type=float, default=0.08)
     parser.add_argument("--ornament-rate", type=float, default=0.004)
     parser.add_argument("--data-version", type=int, default=4556)
     args = parser.parse_args()
 
-    if args.solid_vote_weight <= 0.0:
-        raise SystemExit("--solid-vote-weight must be positive")
+    if args.non_air_threshold < 0.0 or args.non_air_threshold > 1.0:
+        raise SystemExit("--non-air-threshold must be between 0 and 1")
 
     metadata = load_json(args.phase1_dir / "metadata.json")
     rules = np.load(args.phase3_dir / "ruleset.npz")
@@ -414,9 +455,9 @@ def main() -> None:
     generated_categories, reconstruction_stats = reconstruct_overlapping_volume(
         chosen_tiles,
         prototypes,
-        len(metadata["palette"]),
+        metadata["palette"],
         int(metadata["air_id"]),
-        args.solid_vote_weight,
+        args.non_air_threshold,
     )
     blocks, block_palette, post_stats = volume_to_block_ids(
         generated_categories,
@@ -472,10 +513,12 @@ def main() -> None:
         "",
         "## Reconstruction",
         "",
-        f"- Solid vote weight: {reconstruction_stats['solid_vote_weight']:.2f}",
+        f"- Non-air union threshold: {reconstruction_stats['non_air_threshold']:.2f}",
         f"- Raw majority non-air voxels: {reconstruction_stats['raw_majority_non_air_voxels']}",
-        f"- Weighted non-air voxels: {reconstruction_stats['weighted_non_air_voxels']}",
-        f"- Weighted air fraction: {reconstruction_stats['weighted_air_fraction']:.1%}",
+        f"- Union-poll non-air voxels: {reconstruction_stats['union_poll_non_air_voxels']}",
+        f"- Union-poll detail voxels: {reconstruction_stats['union_poll_detail_voxels']}",
+        f"- Union-poll air fraction: {reconstruction_stats['union_poll_air_fraction']:.1%}",
+        f"- Mean non-air probability: {reconstruction_stats['mean_non_air_probability']:.1%}",
         "",
         "## Post-Processing",
         "",

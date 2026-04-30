@@ -127,11 +127,11 @@ def material_blocks(family: str) -> dict[str, str]:
             "wall": "minecraft:stone_brick_wall",
         },
         "masonry": {
-            "full": "minecraft:bricks",
-            "bricks": "minecraft:bricks",
-            "stairs": "minecraft:brick_stairs",
-            "slab": "minecraft:brick_slab",
-            "wall": "minecraft:brick_wall",
+            "full": "minecraft:stone_bricks",
+            "bricks": "minecraft:stone_bricks",
+            "stairs": "minecraft:stone_brick_stairs",
+            "slab": "minecraft:stone_brick_slab",
+            "wall": "minecraft:stone_brick_wall",
         },
         "glass": {
             "full": "minecraft:glass",
